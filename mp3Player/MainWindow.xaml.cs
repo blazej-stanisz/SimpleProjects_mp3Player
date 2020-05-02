@@ -30,10 +30,15 @@ namespace mp3Player
             InitializeComponent();
         }
 
-        private void PlayBtn_Click(object sender, RoutedEventArgs e)
+        private void PlaySelected()
         {
             MusicPlayerMediaElement.Play();
             isPaused = false;
+        }
+
+        private void PlayBtn_Click(object sender, RoutedEventArgs e)
+        {
+            PlaySelected();
         }
 
         private void MusicPlayerMediaElement_MediaFailed(object sender, ExceptionRoutedEventArgs e)
@@ -99,8 +104,26 @@ namespace mp3Player
             }
 
             //audioPlaylistListView.Items.a .AddpreparedAudioList);
+        }
 
-            var a = 10;
+        private void audioPlaylistListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            var listView = sender as ListView;
+            
+            if(listView.Items.Count == 0 || listView.SelectedItem == null)
+            {
+                return;
+            }
+
+            var audioItem = listView.SelectedItem as ListViewAudioItem;
+            MusicPlayerMediaElement.Source = new Uri(audioItem.FileFullPath);
+
+            PlaySelected();
+        }
+
+        private void Slider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            MusicPlayerMediaElement.Volume = e.NewValue;
         }
     }
 }
