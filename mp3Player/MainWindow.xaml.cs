@@ -1,9 +1,11 @@
 ﻿using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -24,21 +26,42 @@ namespace mp3Player
     {
         private bool isPaused = false;
         private List<string> audioFiles = new List<string>();
+        private BackgroundWorker worker = null;
+        
 
         public MainWindow()
         {
             InitializeComponent();
         }
 
-        private void PlaySelected()
+        private void SetSelectedItemAsMusicPlayerSource()
         {
+            if(audioPlaylistListView.SelectedItem == null)
+            {
+                return;
+            }
+
+            var audioItem = audioPlaylistListView.SelectedItem as ListViewAudioItem;
+            MusicPlayerMediaElement.Source = new Uri(audioItem.FileFullPath);
+        }
+
+        private void Play()
+        {
+            SetSelectedItemAsMusicPlayerSource();
             MusicPlayerMediaElement.Play();
             isPaused = false;
         }
 
         private void PlayBtn_Click(object sender, RoutedEventArgs e)
         {
-            PlaySelected();
+            if (isPaused)
+            {
+                MusicPlayerMediaElement.Play();
+                isPaused = false;
+            } else 
+            {
+                Play();
+            }
         }
 
         private void MusicPlayerMediaElement_MediaFailed(object sender, ExceptionRoutedEventArgs e)
@@ -49,6 +72,7 @@ namespace mp3Player
         private void StopBtn_Click(object sender, RoutedEventArgs e)
         {
             MusicPlayerMediaElement.Stop();
+            worker.CancelAsync();
         }
 
         private void PauseBtn_Click(object sender, RoutedEventArgs e)
@@ -63,6 +87,8 @@ namespace mp3Player
                 MusicPlayerMediaElement.Pause();
                 isPaused = true;
             }
+
+            worker.CancelAsync();
         }
 
         private void OpenFileDialogBtn_Click(object sender, RoutedEventArgs e)
@@ -108,22 +134,75 @@ namespace mp3Player
 
         private void audioPlaylistListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            var listView = sender as ListView;
-            
-            if(listView.Items.Count == 0 || listView.SelectedItem == null)
-            {
-                return;
-            }
-
-            var audioItem = listView.SelectedItem as ListViewAudioItem;
-            MusicPlayerMediaElement.Source = new Uri(audioItem.FileFullPath);
-
-            PlaySelected();
+            Play();
         }
 
         private void Slider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             MusicPlayerMediaElement.Volume = e.NewValue;
+        }
+
+        private void MusicPlayerMediaElement_MediaOpened(object sender, RoutedEventArgs e)
+        {
+            audioSlider.Maximum = MusicPlayerMediaElement.NaturalDuration.TimeSpan.TotalSeconds;
+            showProgressOnAudioSlider();
+
+            //MusicPlayerMediaElement.NaturalDuration
+            //MusicPlayerMediaElement.Position
+            //var a = 10;
+        }
+
+        private void showProgressOnAudioSlider()
+        {
+            worker = new BackgroundWorker();
+            worker.WorkerReportsProgress = true;
+            worker.WorkerSupportsCancellation = true;
+            worker.DoWork += worker_DoWork;
+            worker.ProgressChanged += ProgressChanged;
+            worker.RunWorkerAsync();
+            
+        }
+
+        private void worker_DoWork(object sender, DoWorkEventArgs e)
+        {
+            ///audioSlider.Value = MusicPlayerMediaElement.Position.TotalSeconds;
+
+            while (true)
+            {
+                if (worker.CancellationPending == true)
+                {
+                    e.Cancel = true;
+                    break;
+                }
+
+                Thread.Sleep(100);
+                worker.ReportProgress(0);
+            }
+        }
+
+        private void ProgressChanged(object sender, ProgressChangedEventArgs e)
+        {
+            audioSlider.Value = MusicPlayerMediaElement.Position.TotalSeconds;
+        }
+
+        private void PreviousBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if(audioPlaylistListView.Items.Count > 1 && audioPlaylistListView.SelectedIndex > 0)
+            {
+                audioPlaylistListView.SelectedItem = audioPlaylistListView.Items[audioPlaylistListView.SelectedIndex - 1];
+            }
+
+            Play();
+        }
+
+        private void NextBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (audioPlaylistListView.Items.Count > 1 && audioPlaylistListView.SelectedIndex < audioPlaylistListView.Items.Count-1)
+            {
+                audioPlaylistListView.SelectedItem = audioPlaylistListView.Items[audioPlaylistListView.SelectedIndex + 1];
+            }
+
+            Play();
         }
     }
 }
